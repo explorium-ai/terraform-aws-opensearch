@@ -61,52 +61,32 @@ resource "aws_security_group_rule" "egress" {
   security_group_id = join("", aws_security_group.default.*.id)
 }
 
-# https://github.com/terraform-providers/terraform-provider-aws/issues/5218
-resource "aws_iam_service_linked_role" "default" {
-  count            = module.this.enabled && var.create_iam_service_linked_role ? 1 : 0
-  aws_service_name = "es.amazonaws.com"
-  description      = "AWSServiceRoleForAmazonElasticsearchService Service-Linked Role"
+data "aws_region" "current" {}
+
+data "aws_caller_identity" "current" {}
+
+resource "aws_iam_service_linked_role" "example" {
+  aws_service_name = "opensearchservice.amazonaws.com"
 }
 
-# Role that pods can assume for access to elasticsearch and kibana
-resource "aws_iam_role" "elasticsearch_user" {
-  count              = module.this.enabled && (length(var.iam_authorizing_role_arns) > 0 || length(var.iam_role_arns) > 0) ? 1 : 0
-  name               = module.user_label.id
-  assume_role_policy = join("", data.aws_iam_policy_document.assume_role.*.json)
-  description        = "IAM Role to assume to access the Elasticsearch ${module.this.id} cluster"
-  tags               = module.user_label.tags
-
-  max_session_duration = var.iam_role_max_session_duration
-
-  permissions_boundary = var.iam_role_permissions_boundary
-}
-
-data "aws_iam_policy_document" "assume_role" {
-  count = module.this.enabled && (length(var.iam_authorizing_role_arns) > 0 || length(var.iam_role_arns) > 0) ? 1 : 0
-
-  statement {
-    actions = [
-      "sts:AssumeRole"
-    ]
-
-    principals {
-      type        = "Service"
-      identifiers = var.aws_ec2_service_name
-    }
-
-    principals {
-      type        = "AWS"
-      identifiers = compact(concat(var.iam_authorizing_role_arns, var.iam_role_arns))
-    }
-
-    effect = "Allow"
-  }
-}
-
-resource "aws_elasticsearch_domain" "default" {
+resource "aws_opensearch_domain" "default" {
   count                 = module.this.enabled ? 1 : 0
   domain_name           = module.this.id
-  elasticsearch_version = var.elasticsearch_version
+  engine_version        = var.engine_version
+
+  access_policies = <<CONFIG
+  {
+      "Version": "2012-10-17",
+      "Statement": [
+          {
+              "Action": "es:*",
+              "Principal": "*",
+              "Effect": "Allow",
+              "Resource": "arn:aws:es:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:domain/${module.this.id}/*"
+          }
+      ]
+  }
+  CONFIG
 
   advanced_options = var.advanced_options
 
@@ -212,61 +192,7 @@ resource "aws_elasticsearch_domain" "default" {
 
   tags = module.this.tags
 
-  depends_on = [aws_iam_service_linked_role.default]
-}
-
-data "aws_iam_policy_document" "default" {
-  count = module.this.enabled && (length(var.iam_authorizing_role_arns) > 0 || length(var.iam_role_arns) > 0) ? 1 : 0
-
-  statement {
-    effect = "Allow"
-
-    actions = distinct(compact(var.iam_actions))
-
-    resources = [
-      join("", aws_elasticsearch_domain.default.*.arn),
-      "${join("", aws_elasticsearch_domain.default.*.arn)}/*"
-    ]
-
-    principals {
-      type        = "AWS"
-      identifiers = distinct(compact(concat(var.iam_role_arns, aws_iam_role.elasticsearch_user.*.arn)))
-    }
-  }
-
-  # This statement is for non VPC ES to allow anonymous access from whitelisted IP ranges without requests signing
-  # https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-ac.html#es-ac-types-ip
-  # https://aws.amazon.com/premiumsupport/knowledge-center/anonymous-not-authorized-elasticsearch/
-  dynamic "statement" {
-    for_each = length(var.allowed_cidr_blocks) > 0 && ! var.vpc_enabled ? [true] : []
-    content {
-      effect = "Allow"
-
-      actions = distinct(compact(var.iam_actions))
-
-      resources = [
-        join("", aws_elasticsearch_domain.default.*.arn),
-        "${join("", aws_elasticsearch_domain.default.*.arn)}/*"
-      ]
-
-      principals {
-        type        = "AWS"
-        identifiers = ["*"]
-      }
-
-      condition {
-        test     = "IpAddress"
-        values   = var.allowed_cidr_blocks
-        variable = "aws:SourceIp"
-      }
-    }
-  }
-}
-
-resource "aws_elasticsearch_domain_policy" "default" {
-  count           = module.this.enabled && (length(var.iam_authorizing_role_arns) > 0 || length(var.iam_role_arns) > 0) ? 1 : 0
-  domain_name     = module.this.id
-  access_policies = join("", data.aws_iam_policy_document.default.*.json)
+  depends_on = [aws_iam_service_linked_role.example]
 }
 
 module "domain_hostname" {
@@ -277,7 +203,7 @@ module "domain_hostname" {
   dns_name = var.elasticsearch_subdomain_name == "" ? module.this.id : var.elasticsearch_subdomain_name
   ttl      = 60
   zone_id  = var.dns_zone_id
-  records  = [join("", aws_elasticsearch_domain.default.*.endpoint)]
+  records  = [join("", aws_opensearch_domain.default.*.endpoint)]
 
   context = module.this.context
 }
@@ -293,7 +219,7 @@ module "kibana_hostname" {
   # Note: kibana_endpoint is not just a domain name, it includes a path component,
   # and as such is not suitable for a DNS record. The plain endpoint is the
   # hostname portion and should be used for DNS.
-  records = [join("", aws_elasticsearch_domain.default.*.endpoint)]
+  records = [join("", aws_opensearch_domain.default.*.endpoint)]
 
   context = module.this.context
 }

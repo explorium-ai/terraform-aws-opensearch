@@ -43,25 +43,25 @@ variable "subnet_ids" {
 variable "dns_zone_id" {
   type        = string
   default     = ""
-  description = "Route53 DNS Zone ID to add hostname records for Elasticsearch domain and Kibana"
+  description = "Route53 DNS Zone ID to add hostname records for OpenSearch domain and Kibana"
 }
 
-variable "elasticsearch_version" {
+variable "engine_version" {
   type        = string
-  default     = "7.4"
-  description = "Version of Elasticsearch to deploy (_e.g._ `7.4`, `7.1`, `6.8`, `6.7`, `6.5`, `6.4`, `6.3`, `6.2`, `6.0`, `5.6`, `5.5`, `5.3`, `5.1`, `2.3`, `1.5`"
+  default     = "OpenSearch_1.2"
+  description = "Version of OpenSearch to deploy"
 }
 
 variable "instance_type" {
   type        = string
-  default     = "t2.small.elasticsearch"
-  description = "Elasticsearch instance type for data nodes in the cluster"
+  default     = "t2.small.search"
+  description = "OpenSearch instance type for data nodes in the cluster"
 }
 
 variable "instance_count" {
   type        = number
   description = "Number of data nodes in the cluster"
-  default     = 4
+  default     = 3
 }
 
 variable "warm_enabled" {
@@ -78,26 +78,26 @@ variable "warm_count" {
 
 variable "warm_type" {
   type        = string
-  default     = "ultrawarm1.medium.elasticsearch"
+  default     = "ultrawarm1.medium.search"
   description = "Type of UltraWarm nodes"
 }
 
 variable "iam_role_arns" {
   type        = list(string)
   default     = []
-  description = "List of IAM role ARNs to permit access to the Elasticsearch domain"
+  description = "List of IAM role ARNs to permit access to the OpenSearch domain"
 }
 
 variable "iam_role_permissions_boundary" {
   type        = string
   default     = null
-  description = "The ARN of the permissions boundary policy which will be attached to the Elasticsearch user role"
+  description = "The ARN of the permissions boundary policy which will be attached to the OpenSearch user role"
 }
 
 variable "iam_authorizing_role_arns" {
   type        = list(string)
   default     = []
-  description = "List of IAM role ARNs to permit to assume the Elasticsearch user role"
+  description = "List of IAM role ARNs to permit to assume the OpenSearch user role"
 }
 
 variable "iam_actions" {
@@ -109,7 +109,7 @@ variable "iam_actions" {
 variable "zone_awareness_enabled" {
   type        = bool
   default     = true
-  description = "Enable zone awareness for Elasticsearch cluster"
+  description = "Enable zone awareness for OpenSearch cluster"
 }
 
 variable "availability_zone_count" {
@@ -150,7 +150,7 @@ variable "encrypt_at_rest_enabled" {
 variable "encrypt_at_rest_kms_key_id" {
   type        = string
   default     = ""
-  description = "The KMS key ID to encrypt the Elasticsearch domain with. If not specified, then it defaults to using the AWS/Elasticsearch service KMS key"
+  description = "The KMS key ID to encrypt the OpenSearch domain with. If not specified, then it defaults to using the AWS/OpenSearch service KMS key"
 }
 
 variable "domain_endpoint_options_enforce_https" {
@@ -161,7 +161,7 @@ variable "domain_endpoint_options_enforce_https" {
 
 variable "domain_endpoint_options_tls_security_policy" {
   type        = string
-  default     = "Policy-Min-TLS-1-0-2019-07"
+  default     = "Policy-Min-TLS-1-2-2019-07"
   description = "The name of the TLS security policy that needs to be applied to the HTTPS endpoint"
 }
 
@@ -234,7 +234,7 @@ variable "dedicated_master_count" {
 
 variable "dedicated_master_type" {
   type        = string
-  default     = "t2.small.elasticsearch"
+  default     = "t2.small.search"
   description = "Instance type of the dedicated master nodes in the cluster"
 }
 
@@ -244,27 +244,15 @@ variable "advanced_options" {
   description = "Key-value string pairs to specify advanced configuration options"
 }
 
-variable "elasticsearch_subdomain_name" {
-  type        = string
-  default     = ""
-  description = "The name of the subdomain for Elasticsearch in the DNS zone (_e.g._ `elasticsearch`, `ui`, `ui-es`, `search-ui`)"
-}
-
-variable "kibana_subdomain_name" {
-  type        = string
-  default     = ""
-  description = "The name of the subdomain for Kibana in the DNS zone (_e.g._ `kibana`, `ui`, `ui-es`, `search-ui`, `kibana.elasticsearch`)"
-}
-
 variable "create_iam_service_linked_role" {
   type        = bool
   default     = true
-  description = "Whether to create `AWSServiceRoleForAmazonElasticsearchService` service-linked role. Set it to `false` if you already have an ElasticSearch cluster created in the AWS account and AWSServiceRoleForAmazonElasticsearchService already exists. See https://github.com/terraform-providers/terraform-provider-aws/issues/5218 for more info"
+  description = "Whether to create `AWSServiceRoleForAmazonOpenSearchService` service-linked role. Set it to `false` if you already have an OpenSearch cluster created in the AWS account and AWSServiceRoleForAmazonOpenSearchService already exists. See https://github.com/terraform-providers/terraform-provider-aws/issues/5218 for more info"
 }
 
 variable "node_to_node_encryption_enabled" {
   type        = bool
-  default     = false
+  default     = true
   description = "Whether to enable node-to-node encryption"
 }
 
@@ -298,12 +286,6 @@ variable "cognito_iam_role_arn" {
   description = "ARN of the IAM role that has the AmazonESCognitoAccess policy attached"
 }
 
-variable "aws_ec2_service_name" {
-  type        = list(string)
-  default     = ["ec2.amazonaws.com"]
-  description = "AWS EC2 Service Name"
-}
-
 variable "domain_hostname_enabled" {
   type        = bool
   description = "Explicit flag to enable creating a DNS hostname for ES. If `true`, then `var.dns_zone_id` is required."
@@ -319,7 +301,7 @@ variable "kibana_hostname_enabled" {
 variable "advanced_security_options_enabled" {
   type        = bool
   default     = false
-  description = "AWS Elasticsearch Kibana enchanced security plugin enabling (forces new resource)"
+  description = "AWS OpenSearch Kibana enchanced security plugin enabling (forces new resource)"
 }
 
 variable "advanced_security_options_internal_user_database_enabled" {
@@ -348,7 +330,7 @@ variable "advanced_security_options_master_user_password" {
 
 variable "custom_endpoint_enabled" {
   type        = bool
-  description = "Whether to enable custom endpoint for the Elasticsearch domain."
+  description = "Whether to enable custom endpoint for the OpenSearch domain."
   default     = false
 }
 
