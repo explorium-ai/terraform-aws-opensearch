@@ -13,7 +13,7 @@ variable "instance_type" {
   description = "The type of the instance"
 }
 
-variable "elasticsearch_version" {
+variable "engine_version" {
   type        = string
   description = "Version of Elasticsearch to deploy (_e.g._ `7.1`, `6.8`, `6.7`, `6.5`, `6.4`, `6.3`, `6.2`, `6.0`, `5.6`, `5.5`, `5.3`, `5.1`, `2.3`, `1.5`"
 }

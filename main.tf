@@ -1,77 +1,125 @@
-module "user_label" {
-  source  = "cloudposse/label/null"
-  version = "0.25.0"
+# module "user_label" {
+#   source  = "cloudposse/label/null"
+#   version = "0.25.0"
 
-  attributes = ["user"]
+#   attributes = ["user"]
 
-  context = module.this.context
-}
+#   context = module.this.context
+# }
 
-module "kibana_label" {
-  source  = "cloudposse/label/null"
-  version = "0.25.0"
+# module "kibana_label" {
+#   source  = "cloudposse/label/null"
+#   version = "0.25.0"
 
-  attributes = ["kibana"]
+#   attributes = ["kibana"]
 
-  context = module.this.context
-}
+#   context = module.this.context
+# }
 
-resource "aws_security_group" "default" {
-  count       = module.this.enabled && var.vpc_enabled ? 1 : 0
-  vpc_id      = var.vpc_id
-  name        = module.this.id
-  description = "Allow inbound traffic from Security Groups and CIDRs. Allow all outbound traffic"
-  tags        = module.this.tags
+# resource "aws_security_group" "default" {
+#   count       = module.this.enabled && var.vpc_enabled ? 1 : 0
+#   vpc_id      = var.vpc_id
+#   name        = module.this.id
+#   description = "Allow inbound traffic from Security Groups and CIDRs. Allow all outbound traffic"
+#   tags        = module.this.tags
 
-  lifecycle {
-    create_before_destroy = true
-  }
-}
+#   lifecycle {
+#     create_before_destroy = true
+#   }
+# }
 
-resource "aws_security_group_rule" "ingress_security_groups" {
-  count                    = module.this.enabled && var.vpc_enabled ? length(var.security_groups) : 0
-  description              = "Allow inbound traffic from Security Groups"
-  type                     = "ingress"
-  from_port                = var.ingress_port_range_start
-  to_port                  = var.ingress_port_range_end
-  protocol                 = "tcp"
-  source_security_group_id = var.security_groups[count.index]
-  security_group_id        = join("", aws_security_group.default.*.id)
-}
+# resource "aws_security_group_rule" "ingress_security_groups" {
+#   count                    = module.this.enabled && var.vpc_enabled ? length(var.security_groups) : 0
+#   description              = "Allow inbound traffic from Security Groups"
+#   type                     = "ingress"
+#   from_port                = var.ingress_port_range_start
+#   to_port                  = var.ingress_port_range_end
+#   protocol                 = "tcp"
+#   source_security_group_id = var.security_groups[count.index]
+#   security_group_id        = join("", aws_security_group.default.*.id)
+# }
 
-resource "aws_security_group_rule" "ingress_cidr_blocks" {
-  count             = module.this.enabled && var.vpc_enabled && length(var.allowed_cidr_blocks) > 0 ? 1 : 0
-  description       = "Allow inbound traffic from CIDR blocks"
-  type              = "ingress"
-  from_port         = var.ingress_port_range_start
-  to_port           = var.ingress_port_range_end
-  protocol          = "tcp"
-  cidr_blocks       = var.allowed_cidr_blocks
-  security_group_id = join("", aws_security_group.default.*.id)
-}
+# resource "aws_security_group_rule" "ingress_cidr_blocks" {
+#   count             = module.this.enabled && var.vpc_enabled && length(var.allowed_cidr_blocks) > 0 ? 1 : 0
+#   description       = "Allow inbound traffic from CIDR blocks"
+#   type              = "ingress"
+#   from_port         = var.ingress_port_range_start
+#   to_port           = var.ingress_port_range_end
+#   protocol          = "tcp"
+#   cidr_blocks       = var.allowed_cidr_blocks
+#   security_group_id = join("", aws_security_group.default.*.id)
+# }
 
-resource "aws_security_group_rule" "egress" {
-  count             = module.this.enabled && var.vpc_enabled ? 1 : 0
-  description       = "Allow all egress traffic"
-  type              = "egress"
-  from_port         = 0
-  to_port           = 65535
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = join("", aws_security_group.default.*.id)
-}
+# resource "aws_security_group_rule" "egress" {
+#   count             = module.this.enabled && var.vpc_enabled ? 1 : 0
+#   description       = "Allow all egress traffic"
+#   type              = "egress"
+#   from_port         = 0
+#   to_port           = 65535
+#   protocol          = "tcp"
+#   cidr_blocks       = ["0.0.0.0/0"]
+#   security_group_id = join("", aws_security_group.default.*.id)
+# }
 
 data "aws_region" "current" {}
 
 data "aws_caller_identity" "current" {}
 
+
+data "aws_route53_zone" "selected" {
+  count = var.custom_endpoint_enabled ? 1 : 0
+  name         = var.custom_endpoint_domain
+  private_zone = var.vpc_enabled
+}
+
+resource "aws_route53_record" "custom_endpoint" {
+  count = var.custom_endpoint_enabled ? 1 : 0
+  zone_id = data.aws_route53_zone.selected[0].zone_id
+  name = var.custom_endpoint
+  type = "CNAME"
+  ttl     = "60"
+
+  records = [
+    module.elasticsearch.domain_endpoint
+  ]
+}
+
 resource "aws_iam_service_linked_role" "example" {
+  count            = var.create_iam_service_linked_role ? 1 : 0
   aws_service_name = "opensearchservice.amazonaws.com"
 }
 
+resource "aws_cloudwatch_log_group" "example" {
+  name = "goga-test-123"
+}
+
+resource "aws_cloudwatch_log_resource_policy" "example" {
+  policy_name = "goga-test-opensearch"
+
+  policy_document = <<CONFIG
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "es.amazonaws.com"
+      },
+      "Action": [
+        "logs:PutLogEvents",
+        "logs:PutLogEventsBatch",
+        "logs:CreateLogStream"
+      ],
+      "Resource": "arn:aws:logs:*"
+    }
+  ]
+}
+CONFIG
+}
+
 resource "aws_opensearch_domain" "default" {
-  count                 = module.this.enabled ? 1 : 0
-  domain_name           = module.this.id
+  # count                 = module.this.enabled ? 1 : 0
+  domain_name           = "gogatest"
   engine_version        = var.engine_version
 
   access_policies = <<CONFIG
@@ -159,35 +207,35 @@ resource "aws_opensearch_domain" "default" {
   dynamic "cognito_options" {
     for_each = var.cognito_authentication_enabled ? [true] : []
     content {
-      enabled          = true
+      enabled          = false
       user_pool_id     = var.cognito_user_pool_id
       identity_pool_id = var.cognito_identity_pool_id
       role_arn         = var.cognito_iam_role_arn
     }
   }
 
-  log_publishing_options {
-    enabled                  = var.log_publishing_index_enabled
-    log_type                 = "INDEX_SLOW_LOGS"
-    cloudwatch_log_group_arn = var.log_publishing_index_cloudwatch_log_group_arn
-  }
+  # log_publishing_options {
+  #   enabled                  = var.log_publishing_index_enabled
+  #   log_type                 = "INDEX_SLOW_LOGS"
+  #   cloudwatch_log_group_arn = var.log_publishing_index_cloudwatch_log_group_arn
+  # }
 
   log_publishing_options {
     enabled                  = var.log_publishing_search_enabled
     log_type                 = "SEARCH_SLOW_LOGS"
-    cloudwatch_log_group_arn = var.log_publishing_search_cloudwatch_log_group_arn
+    cloudwatch_log_group_arn = aws_cloudwatch_log_group.example.arn
   }
 
-  log_publishing_options {
-    enabled                  = var.log_publishing_audit_enabled
-    log_type                 = "AUDIT_LOGS"
-    cloudwatch_log_group_arn = var.log_publishing_audit_cloudwatch_log_group_arn
-  }
+  # log_publishing_options {
+  #   enabled                  = var.log_publishing_audit_enabled
+  #   log_type                 = "AUDIT_LOGS"
+  #   cloudwatch_log_group_arn = var.log_publishing_audit_cloudwatch_log_group_arn
+  # }
 
   log_publishing_options {
     enabled                  = var.log_publishing_application_enabled
     log_type                 = "ES_APPLICATION_LOGS"
-    cloudwatch_log_group_arn = var.log_publishing_application_cloudwatch_log_group_arn
+    cloudwatch_log_group_arn = aws_cloudwatch_log_group.example.arn
   }
 
   tags = module.this.tags

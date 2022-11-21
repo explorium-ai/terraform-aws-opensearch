@@ -1,3 +1,21 @@
+variable "name" {
+  type        = string
+  description = "name"
+}
+
+variable "region" {
+  type        = string
+  description = "AWS region"
+  default = "us-east-1"
+}
+
+variable "tags" {
+  type        = map(string)
+  default = {
+    CreatedBy = "Gaia"
+  }
+}
+
 variable "security_groups" {
   type        = list(string)
   default     = []
@@ -165,7 +183,6 @@ variable "domain_endpoint_options_tls_security_policy" {
   description = "The name of the TLS security policy that needs to be applied to the HTTPS endpoint"
 }
 
-
 variable "log_publishing_index_enabled" {
   type        = bool
   default     = false
@@ -174,7 +191,7 @@ variable "log_publishing_index_enabled" {
 
 variable "log_publishing_search_enabled" {
   type        = bool
-  default     = false
+  default     = true
   description = "Specifies whether log publishing option for SEARCH_SLOW_LOGS is enabled or not"
 }
 
@@ -186,7 +203,7 @@ variable "log_publishing_audit_enabled" {
 
 variable "log_publishing_application_enabled" {
   type        = bool
-  default     = false
+  default     = true
   description = "Specifies whether log publishing option for ES_APPLICATION_LOGS is enabled or not"
 }
 
@@ -244,9 +261,21 @@ variable "advanced_options" {
   description = "Key-value string pairs to specify advanced configuration options"
 }
 
+variable "elasticsearch_subdomain_name" {
+  type        = string
+  default     = ""
+  description = "The name of the subdomain for Elasticsearch in the DNS zone (_e.g._ `elasticsearch`, `ui`, `ui-es`, `search-ui`)"
+}
+
+variable "kibana_subdomain_name" {
+  type        = string
+  default     = ""
+  description = "The name of the subdomain for Kibana in the DNS zone (_e.g._ `kibana`, `ui`, `ui-es`, `search-ui`, `kibana.elasticsearch`)"
+}
+
 variable "create_iam_service_linked_role" {
   type        = bool
-  default     = true
+  default     = false
   description = "Whether to create `AWSServiceRoleForAmazonOpenSearchService` service-linked role. Set it to `false` if you already have an OpenSearch cluster created in the AWS account and AWSServiceRoleForAmazonOpenSearchService already exists. See https://github.com/terraform-providers/terraform-provider-aws/issues/5218 for more info"
 }
 
