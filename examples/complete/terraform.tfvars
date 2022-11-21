@@ -4,10 +4,6 @@ region = "us-east-1"
 
 namespace = "eg-test"
 
-# stage = "test-goga"
-
-# name = "es-test"
-
 availability_zones = ["us-east-1a"]
 
 instance_type = "t3.small.search"
