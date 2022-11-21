@@ -26,7 +26,7 @@ ebs_volume_size = 20
 
 create_iam_service_linked_role = false
 
-dns_zone_id = "Z047040315Z7C2HKIWJJP"
+dns_zone_id = ""
 
 kibana_hostname_enabled = false
 
